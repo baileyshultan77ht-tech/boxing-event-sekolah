@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boxing Matchmaker Pro</title>
+    <style>
+        :root { --primary: #d00000; --secondary: #3f37c9; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); padding: 20px; color: #212529; }
+        .container { max-width: 1100px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px; }
+        h2, h3 { margin-top: 0; color: #1d3557; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        /* Form Styling */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        input, select { padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background: var(--primary); color: white; width: 100%; }
+        .btn-edit { background: #ffca3a; color: #000; font-size: 12px; }
+        .btn-del { background: #ff595e; color: white; font-size: 12px; }
+        .btn-match { background: #8ac926; color: white; font-size: 11px; margin: 2px; }
+        .btn-cancel { background: #6c757d; color: white; font-size: 11px; margin: 2px; }
+
+        /* Table Styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid #dee2e6; padding: 12px; text-align: left; }
+        th { background: #343a40; color: white; }
+        tr:nth-child(even) { background: #f2f2f2; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: bold; }
+        .badge-box { background: #caf0f8; color: #0077b6; }
+        .badge-kick { background: #feeafa; color: #9d4edd; }
+        .status-match { background: #d4edda; color: #155724; padding: 2px 5px; border-radius: 3px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🥊 Boxing Event Matchmaker</h2>
+
+    <div class="card">
+        <h3>Pendaftaran Fighter</h3>
+        <div class="form-grid">
+            <input type="hidden" id="editId" value="">
+            <div>
+                <label>Nama</label><br>
+                <input type="text" id="inpNama" placeholder="Nama Petarung" style="width:100%">
+            </div>
+            <div>
+                <label>Berat (kg)</label><br>
+                <input type="number" id="inpBerat" placeholder="Contoh: 70" style="width:100%">
+            </div>
+            <div>
+                <label>Disiplin</label><br>
+                <select id="inpDisiplin" style="width:100%">
+                    <option value="Boxing">Boxing</option>
+                    <option value="Kickboxing">Kickboxing</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-add" id="btnSimpan" onclick="simpanFighter()">Daftarkan Fighter</button>
+    </div>
+
+    <div class="card">
+        <h3>Daftar Peserta & Manajemen</h3>
+        <table id="tabelFighter">
+            <thead>
+                <tr>
+                    <th>Nama</th>
+                    <th>Berat</th>
+                    <th>Disiplin</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="bodyFighter"></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>Rekomendasi Match (Otomatis & Manual)</h3>
+        <p style="font-size: 0.85rem; color: #666;">*Sistem mencari selisih berat max 3kg. Klik 'Match' untuk mengonfirmasi atau 'Cancel' untuk membatalkan.</p>
+        <table id="tabelMatch">
+            <thead>
+                <tr>
+                    <th>Fighter</th>
+                    <th>Berat</th>
+                    <th>Disiplin</th>
+                    <th>Rekomendasi Lawan & Status</th>
+                </tr>
+            </thead>
+            <tbody id="bodyMatch"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let dataFighter = [];
+    let confirmedMatches = {}; // Menyimpan status manual match
+
+    function simpanFighter() {
+        const id = document.getElementById('editId').value;
+        const nama = document.getElementById('inpNama').value;
+        const berat = parseFloat(document.getElementById('inpBerat').value);
+        const disiplin = document.getElementById('inpDisiplin').value;
+
+        if (!nama || !berat) return alert("Isi nama dan berat!");
+
+        if (id === "") {
+            // Data Baru
+            dataFighter.push({ id: Date.now(), nama, berat, disiplin });
+        } else {
+            // Update Data Lama
+            const index = dataFighter.findIndex(f => f.id == id);
+            dataFighter[index] = { id: parseInt(id), nama, berat, disiplin };
+            document.getElementById('btnSimpan').innerText = "Daftarkan Fighter";
+            document.getElementById('editId').value = "";
+        }
+
+        resetForm();
+        renderSemua();
+    }
+
+    function resetForm() {
+        document.getElementById('inpNama').value = '';
+        document.getElementById('inpBerat').value = '';
+        document.getElementById('inpDisiplin').value = 'Boxing';
+    }
+
+    function hapusFighter(id) {
+        if(confirm("Hapus fighter ini?")) {
+            dataFighter = dataFighter.filter(f => f.id !== id);
+            renderSemua();
+        }
+    }
+
+    function editFighter(id) {
+        const f = dataFighter.find(f => f.id === id);
+        document.getElementById('inpNama').value = f.nama;
+        document.getElementById('inpBerat').value = f.berat;
+        document.getElementById('inpDisiplin').value = f.disiplin;
+        document.getElementById('editId').value = f.id;
+        document.getElementById('btnSimpan').innerText = "Update Data";
+        window.scrollTo(0,0);
+    }
+
+    // Fungsi untuk mengubah status match secara manual
+    function toggleMatch(fighterId, lawanId, aksi) {
+        const matchKey = `${Math.min(fighterId, lawanId)}-${Math.max(fighterId, lawanId)}`;
+        if (aksi === 'set') {
+            confirmedMatches[matchKey] = true;
+        } else {
+            delete confirmedMatches[matchKey];
+        }
+        renderSemua();
+    }
+
+    function renderSemua() {
+        const bFighter = document.getElementById('bodyFighter');
+        const bMatch = document.getElementById('bodyMatch');
+        bFighter.innerHTML = '';
+        bMatch.innerHTML = '';
+
+        dataFighter.forEach(f => {
+            const bCls = f.disiplin === 'Boxing' ? 'badge-box' : 'badge-kick';
+            
+            // Render Tabel Master
+            bFighter.innerHTML += `
+                <tr>
+                    <td><strong>${f.nama}</strong></td>
+                    <td>${f.berat} kg</td>
+                    <td><span class="badge ${bCls}">${f.disiplin}</span></td>
+                    <td>
+                        <button class="btn btn-edit" onclick="editFighter(${f.id})">Edit</button>
+                        <button class="btn btn-del" onclick="hapusFighter(${f.id})">Hapus</button>
+                    </td>
+                </tr>
+            `;
+
+            // Mencari Potensi Lawan
+            let lawanHtml = "";
+            const potensiLawan = dataFighter.filter(l => 
+                l.id !== f.id && 
+                l.disiplin === f.disiplin && 
+                Math.abs(l.berat - f.berat) <= 3
+            );
+
+            if (potensiLawan.length > 0) {
+                potensiLawan.forEach(pl => {
+                    const matchKey = `${Math.min(f.id, pl.id)}-${Math.max(f.id, pl.id)}`;
+                    const isConfirmed = confirmedMatches[matchKey];
+
+                    lawanHtml += `
+                        <div style="margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 5px;">
+                            ${pl.nama} (${pl.berat}kg) 
+                            ${isConfirmed ? '<span class="status-match">FIXED</span>' : ''}
+                            <br>
+                            <button class="btn btn-match" onclick="toggleMatch(${f.id}, ${pl.id}, 'set')">Confirm Match</button>
+                            <button class="btn btn-cancel" onclick="toggleMatch(${f.id}, ${pl.id}, 'unset')">Cancel</button>
+                        </div>
+                    `;
+                });
+            } else {
+                lawanHtml = "<small style='color:grey'>Belum ada yang cocok</small>";
+            }
+
+            // Render Tabel Match
+            bMatch.innerHTML += `
+                <tr>
+                    <td>${f.nama}</td>
+                    <td>${f.berat} kg</td>
+                    <td><span class="badge ${bCls}">${f.disiplin}</span></td>
+                    <td>${lawanHtml}</td>
+                </tr>
+            `;
+        });
+    }
+</script>
+
+</body>
+</html>
